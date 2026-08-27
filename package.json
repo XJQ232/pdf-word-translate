@@ -1,0 +1,150 @@
+{
+  "name": "pdf-word-translate",
+  "displayName": "PDF \u5212\u8bcd\u7ffb\u8bd1",
+  "description": "\u5728 VS Code \u4e2d\u9605\u8bfb PDF\uff0c\u5e76\u5bf9\u9009\u4e2d\u6587\u672c\u81ea\u52a8\u5212\u8bcd\u7ffb\u8bd1\u3002",
+  "version": "0.2.4",
+  "publisher": "local",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "bugs": {
+    "url": ""
+  },
+  "homepage": "",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "pdf",
+    "translate",
+    "translation",
+    "baidu",
+    "tencent",
+    "openai",
+    "\u5212\u8bcd\u7ffb\u8bd1",
+    "PDF"
+  ],
+  "activationEvents": [
+    "onCustomEditor:pdf-word-translate.viewer",
+    "onCommand:pdf-word-translate.open",
+    "onCommand:pdf-word-translate.configureBaidu",
+    "onCommand:pdf-word-translate.configureTencent",
+    "onCommand:pdf-word-translate.configureOpenAI",
+    "onCommand:pdf-word-translate.clearTranslatorSecrets"
+  ],
+  "main": "./src/extension.js",
+  "scripts": {
+    "check": "node --check ./src/extension.js && node --check ./media/viewer.js"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "pdf-word-translate.open",
+        "title": "PDF Translate Viewer: Open Current PDF"
+      },
+      {
+        "command": "pdf-word-translate.configureBaidu",
+        "title": "PDF Translate Viewer: Configure Baidu Translate"
+      },
+      {
+        "command": "pdf-word-translate.configureTencent",
+        "title": "PDF Translate Viewer: Configure Tencent Translate"
+      },
+      {
+        "command": "pdf-word-translate.configureOpenAI",
+        "title": "PDF Translate Viewer: Configure OpenAI Translate"
+      },
+      {
+        "command": "pdf-word-translate.clearTranslatorSecrets",
+        "title": "PDF Translate Viewer: Clear Translator API Keys"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "pdf-word-translate.viewer",
+        "displayName": "PDF Translate Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.pdf"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "configuration": {
+      "title": "PDF Word Translate",
+      "properties": {
+        "pdfWordTranslate.sourceLanguage": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "en", "zh", "ja", "ko", "fr", "de", "es", "ru", "pt", "it"],
+          "enumDescriptions": ["Auto detect", "English", "Chinese", "Japanese", "Korean", "French", "German", "Spanish", "Russian", "Portuguese", "Italian"],
+          "description": "Source language used for translation."
+        },
+        "pdfWordTranslate.targetLanguage": {
+          "type": "string",
+          "default": "zh",
+          "enum": ["zh", "en", "ja", "ko", "fr", "de", "es", "ru", "pt", "it"],
+          "enumDescriptions": ["Chinese", "English", "Japanese", "Korean", "French", "German", "Spanish", "Russian", "Portuguese", "Italian"],
+          "description": "Target language used for translation."
+        },
+        "pdfWordTranslate.baiduEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Try Baidu Translate first when credentials are configured."
+        },
+        "pdfWordTranslate.tencentEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Try Tencent Translate after Baidu when credentials are configured."
+        },
+        "pdfWordTranslate.tencentRegion": {
+          "type": "string",
+          "default": "ap-guangzhou",
+          "enum": ["ap-guangzhou", "ap-beijing", "ap-shanghai", "ap-singapore", "na-siliconvalley"],
+          "enumDescriptions": ["Guangzhou", "Beijing", "Shanghai", "Singapore", "Silicon Valley"],
+          "description": "Tencent Cloud region for Machine Translation requests."
+        },
+        "pdfWordTranslate.openaiEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Try OpenAI after Baidu and Tencent when an API key is configured."
+        },
+        "pdfWordTranslate.openaiModel": {
+          "type": "string",
+          "default": "gpt-4.1-mini",
+          "enum": ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"],
+          "description": "OpenAI model used for translation."
+        },
+        "pdfWordTranslate.maxSelectionLength": {
+          "type": "number",
+          "default": 1200,
+          "minimum": 1,
+          "description": "Maximum selected characters sent to the translation service."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "pdf-word-translate.open",
+          "when": "resourceExtname == .pdf",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "pdf-word-translate.open",
+          "when": "resourceExtname == .pdf",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "devDependencies": {}
+}
