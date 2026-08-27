@@ -7,12 +7,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/XJQ232/pdf-word-translate.git"
   },
   "bugs": {
-    "url": ""
+    "url": "https://github.com/XJQ232/pdf-word-translate/issues"
   },
-  "homepage": "",
+  "homepage": "https://github.com/XJQ232/pdf-word-translate#readme",
   "engines": {
     "vscode": "^1.88.0"
   },
