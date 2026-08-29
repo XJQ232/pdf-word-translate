@@ -33,7 +33,7 @@ PDF 划词翻译是一个 VS Code PDF 阅读扩展。它可以在 PDF 中渲染�
 从本地 VSIX 安装：
 
 ```powershell
-code --install-extension .\pdf-word-translate-0.2.5.vsix --force
+code --install-extension .\pdf-word-translate-0.2.6.vsix --force
 ```
 
 安装后执行命令：
@@ -119,3 +119,4 @@ powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1
 ## 说明
 
 当前高亮和备注是 viewer 内的临时标记，不会写回 PDF 文件本体。当前 PDF.js 从 CDN 加载，因此首次打开 PDF 时需要网络访问 `cdn.jsdelivr.net`。翻译服务也需要对应 API 的网络访问权限。
+

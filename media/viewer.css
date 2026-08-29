@@ -97,6 +97,7 @@ button:hover {
 #viewer {
   height: 100%;
   overflow: auto;
+  overflow-anchor: none;
   padding: calc(var(--toolbar-height) + var(--page-gap)) var(--page-gap) var(--page-gap);
   background: var(--vscode-editor-background);
 }

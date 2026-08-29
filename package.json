@@ -2,7 +2,7 @@
   "name": "pdf-word-translate",
   "displayName": "PDF \u5212\u8bcd\u7ffb\u8bd1",
   "description": "\u5728 VS Code \u4e2d\u9605\u8bfb PDF\uff0c\u5e76\u5bf9\u9009\u4e2d\u6587\u672c\u81ea\u52a8\u5212\u8bcd\u7ffb\u8bd1\u3002",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "publisher": "local",
   "license": "MIT",
   "repository": {

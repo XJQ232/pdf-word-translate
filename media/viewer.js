@@ -161,8 +161,8 @@ async function openPdfData(base64) {
 
 async function renderAllPages(pdfjs) {
   const token = ++state.renderToken;
-  const scrollTop = viewer.scrollTop;
-  viewer.textContent = '';
+  const scrollAnchor = captureScrollAnchor();
+  const fragment = document.createDocumentFragment();
   state.lastSelection = null;
   state.lastTranslation = null;
   state.pendingNoteRequestId = null;
@@ -199,14 +199,15 @@ async function renderAllPages(pdfjs) {
     textLayer.style.height = `${viewport.height}px`;
     textLayer.style.setProperty('--scale-factor', String(viewport.scale));
     pageElement.appendChild(textLayer);
-    viewer.appendChild(pageElement);
+    fragment.appendChild(pageElement);
 
     const textContent = await page.getTextContent();
     await renderPageTextLayer(pdfjs, textContent, textLayer, viewport);
     renderAnnotations(pageElement, pageIndex);
   }
 
-  viewer.scrollTop = scrollTop;
+  viewer.replaceChildren(fragment);
+  restoreScrollAnchor(scrollAnchor);
   updateCurrentPage();
 }
 
@@ -413,6 +414,47 @@ function fitWidth() {
   const currentWidth = firstPage.getBoundingClientRect().width;
   const available = viewer.clientWidth - 40;
   setScale(state.scale * (available / currentWidth));
+}
+
+function captureScrollAnchor() {
+  const pages = [...viewer.querySelectorAll('.page')];
+  if (pages.length === 0) {
+    return {
+      pageNumber: state.currentPage,
+      ratio: 0,
+      fallbackScrollTop: viewer.scrollTop
+    };
+  }
+
+  const marker = viewer.scrollTop + viewer.clientHeight * 0.35;
+  let anchorPage = pages[0];
+  for (const page of pages) {
+    if (page.offsetTop <= marker) {
+      anchorPage = page;
+    }
+  }
+
+  const offsetInPage = Math.max(0, marker - anchorPage.offsetTop);
+  return {
+    pageNumber: Number(anchorPage.dataset.pageNumber),
+    ratio: anchorPage.offsetHeight > 0 ? offsetInPage / anchorPage.offsetHeight : 0,
+    fallbackScrollTop: viewer.scrollTop
+  };
+}
+
+function restoreScrollAnchor(anchor) {
+  if (!anchor) {
+    return;
+  }
+
+  const target = viewer.querySelector(`[data-page-number="${anchor.pageNumber}"]`);
+  if (!target) {
+    viewer.scrollTop = anchor.fallbackScrollTop || 0;
+    return;
+  }
+
+  const offsetInPage = target.offsetHeight * clamp(anchor.ratio, 0, 1);
+  viewer.scrollTop = Math.max(0, target.offsetTop + offsetInPage - viewer.clientHeight * 0.35);
 }
 
 function captureSelection(selection, text) {
