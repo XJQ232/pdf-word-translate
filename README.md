@@ -40,7 +40,7 @@ PDF 划词翻译是一个 VS Code PDF 阅读扩展。它可以在 PDF 中渲染�
 从本地 VSIX 安装：
 
 ```powershell
-code --install-extension .\pdf-word-translate-0.2.8.vsix --force
+code --install-extension .\pdf-word-translate-0.2.9.vsix --force
 ```
 
 安装后执行命令：
@@ -62,6 +62,24 @@ Developer: Reload Window
 9. 按 `Ctrl+S` 或工具栏 `Save` 保存标注。
 10. 点击工具栏的 `Settings` 可以调整语言、快捷键、高亮透明度、备注透明度、启用或关闭某个翻译服务。
 11. 高亮和备注改变后，按 `Ctrl+S` 或点击 `Save` 保存到本机。
+
+## 标注保存位置
+
+高亮和备注会保存到 PDF 文件同目录下的 `pdf-annotations` 文件夹中。
+
+例如打开：
+
+```text
+D:\papers\example.pdf
+```
+
+保存后会生成：
+
+```text
+D:\papers\pdf-annotations\example.annotations.json
+```
+
+这个 JSON 文件保存高亮位置、颜色、透明度、备注位置和备注内容。插件不会把标注直接写进 PDF 文件本体。
 
 ## 配置 API
 
@@ -134,5 +152,5 @@ powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1
 
 ## 说明
 
-当前高亮和备注是 viewer 内的临时标记，不会写回 PDF 文件本体。当前 PDF.js 从 CDN 加载，因此首次打开 PDF 时需要网络访问 `cdn.jsdelivr.net`。翻译服务也需要对应 API 的网络访问权限。
+当前高亮和备注会保存为 PDF 同目录 `pdf-annotations` 文件夹里的 JSON 文件，不会写回 PDF 文件本体。当前 PDF.js 从 CDN 加载，因此首次打开 PDF 时需要网络访问 `cdn.jsdelivr.net`。翻译服务也需要对应 API 的网络访问权限。
 

@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
+const path = require('path');
 
 const VIEW_TYPE = 'pdf-word-translate.viewer';
 let activeContext;
@@ -69,7 +70,7 @@ class PdfTranslateProvider {
           webviewPanel.webview.postMessage({
             type: 'pdfData',
             data: Buffer.from(bytes).toString('base64'),
-            annotations: getSavedAnnotations(this.context, document.uri)
+            annotations: await getSavedAnnotations(this.context, document.uri)
           });
         } catch (error) {
           webviewPanel.webview.postMessage({
@@ -819,16 +820,43 @@ function annotationStateKey(uri) {
   return `annotations.${Buffer.from(uri.toString()).toString('base64')}`;
 }
 
-function getSavedAnnotations(context, uri) {
-  const annotations = context.globalState.get(annotationStateKey(uri), []);
-  return Array.isArray(annotations) ? annotations : [];
+function getAnnotationFileUri(uri) {
+  if (uri.scheme !== 'file') {
+    throw new Error('Annotations can only be saved for local PDF files.');
+  }
+  const directory = path.dirname(uri.fsPath);
+  const pdfName = path.basename(uri.fsPath, path.extname(uri.fsPath));
+  return vscode.Uri.file(path.join(directory, 'pdf-annotations', `${pdfName}.annotations.json`));
+}
+
+async function getSavedAnnotations(context, uri) {
+  const annotationFile = getAnnotationFileUri(uri);
+  try {
+    const bytes = await vscode.workspace.fs.readFile(annotationFile);
+    const parsed = JSON.parse(Buffer.from(bytes).toString('utf8'));
+    return Array.isArray(parsed?.annotations) ? parsed.annotations : [];
+  } catch (error) {
+    if (typeof error?.code === 'string' && error.code !== 'FileNotFound') {
+      throw error;
+    }
+    const legacyAnnotations = context.globalState.get(annotationStateKey(uri), []);
+    return Array.isArray(legacyAnnotations) ? legacyAnnotations : [];
+  }
 }
 
 async function saveAnnotations(context, uri, annotations) {
   if (!Array.isArray(annotations)) {
     throw new Error('Invalid annotations payload.');
   }
-  await context.globalState.update(annotationStateKey(uri), annotations);
+  const annotationFile = getAnnotationFileUri(uri);
+  const payload = {
+    pdf: uri.toString(),
+    savedAt: new Date().toISOString(),
+    annotations
+  };
+  await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(annotationFile.fsPath)));
+  await vscode.workspace.fs.writeFile(annotationFile, Buffer.from(`${JSON.stringify(payload, null, 2)}\n`, 'utf8'));
+  await context.globalState.update(annotationStateKey(uri), undefined);
 }
 
 function makeNonce() {
