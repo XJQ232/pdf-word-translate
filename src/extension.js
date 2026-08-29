@@ -68,11 +68,28 @@ class PdfTranslateProvider {
           const bytes = await vscode.workspace.fs.readFile(document.uri);
           webviewPanel.webview.postMessage({
             type: 'pdfData',
-            data: Buffer.from(bytes).toString('base64')
+            data: Buffer.from(bytes).toString('base64'),
+            annotations: getSavedAnnotations(this.context, document.uri)
           });
         } catch (error) {
           webviewPanel.webview.postMessage({
             type: 'pdfError',
+            message: error instanceof Error ? error.message : String(error)
+          });
+        }
+        return;
+      }
+
+      if (message.type === 'saveAnnotations') {
+        try {
+          await saveAnnotations(this.context, document.uri, message.annotations);
+          webviewPanel.webview.postMessage({
+            type: 'annotationsSaved',
+            savedAt: new Date().toISOString()
+          });
+        } catch (error) {
+          webviewPanel.webview.postMessage({
+            type: 'annotationsSaveError',
             message: error instanceof Error ? error.message : String(error)
           });
         }
@@ -203,6 +220,8 @@ class PdfTranslateProvider {
       <option value="blue">Blue</option>
       <option value="pink">Pink</option>
     </select>
+    <button id="saveAnnotations" title="Save highlights and notes">Save</button>
+    <span id="saveStatus" class="save-status"></span>
     <span class="spacer"></span>
     <button id="settingsButton" title="Translation settings">Settings</button>
   </header>
@@ -293,13 +312,14 @@ class PdfTranslateProvider {
       </select>
     </label>
     <label>
+      Highlight opacity
+      <input id="highlightOpacity" type="range" min="0.1" max="1" step="0.05">
+      <span id="highlightOpacityValue" class="range-value">46%</span>
+    </label>
+    <label>
       Note opacity
-      <select id="noteOpacity">
-        <option value="1">100%</option>
-        <option value="0.85">85%</option>
-        <option value="0.7">70%</option>
-        <option value="0.55">55%</option>
-      </select>
+      <input id="noteOpacity" type="range" min="0.35" max="1" step="0.05">
+      <span id="noteOpacityValue" class="range-value">100%</span>
     </label>
     <label>
       Max selection length
@@ -511,7 +531,8 @@ async function getPublicSettings(context) {
     highlightShortcut: readSetting(context, 'highlightShortcut', 'ctrl+h'),
     noteShortcut: readSetting(context, 'noteShortcut', 'ctrl+p'),
     highlightColor: readSetting(context, 'highlightColor', 'yellow'),
-    noteOpacity: readSetting(context, 'noteOpacity', '1'),
+    noteOpacity: readSetting(context, 'noteOpacity', 1),
+    highlightOpacity: readSetting(context, 'highlightOpacity', 0.46),
     maxSelectionLength: readSetting(context, 'maxSelectionLength', 1200),
     hasBaidu: Boolean(await context.secrets.get(secretKey('baidu.appid')) && await context.secrets.get(secretKey('baidu.key'))),
     hasTencent: Boolean(await context.secrets.get(secretKey('tencent.secretId')) && await context.secrets.get(secretKey('tencent.secretKey'))),
@@ -529,13 +550,22 @@ async function saveSettings(context, settings) {
   await writeSetting(context, 'highlightShortcut', stringOrDefault(settings.highlightShortcut, 'ctrl+h'));
   await writeSetting(context, 'noteShortcut', stringOrDefault(settings.noteShortcut, 'ctrl+p'));
   await writeSetting(context, 'highlightColor', stringOrDefault(settings.highlightColor, 'yellow'));
-  await writeSetting(context, 'noteOpacity', stringOrDefault(settings.noteOpacity, '1'));
+  await writeSetting(context, 'highlightOpacity', clampNumber(settings.highlightOpacity, 0.1, 1, 0.46));
+  await writeSetting(context, 'noteOpacity', clampNumber(settings.noteOpacity, 0.35, 1, 1));
   await writeSetting(context, 'maxSelectionLength', Number(settings.maxSelectionLength) || 1200);
 }
 
 function stringOrDefault(value, defaultValue) {
   const text = typeof value === 'string' ? value.trim() : '';
   return text || defaultValue;
+}
+
+function clampNumber(value, min, max, defaultValue) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return defaultValue;
+  }
+  return Math.min(max, Math.max(min, number));
 }
 
 function secretKey(name) {
@@ -783,6 +813,22 @@ async function writeSetting(context, key, value) {
 
 function stateSettingKey(key) {
   return `setting.${key}`;
+}
+
+function annotationStateKey(uri) {
+  return `annotations.${Buffer.from(uri.toString()).toString('base64')}`;
+}
+
+function getSavedAnnotations(context, uri) {
+  const annotations = context.globalState.get(annotationStateKey(uri), []);
+  return Array.isArray(annotations) ? annotations : [];
+}
+
+async function saveAnnotations(context, uri, annotations) {
+  if (!Array.isArray(annotations)) {
+    throw new Error('Invalid annotations payload.');
+  }
+  await context.globalState.update(annotationStateKey(uri), annotations);
 }
 
 function makeNonce() {

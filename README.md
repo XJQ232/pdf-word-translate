@@ -14,8 +14,12 @@ PDF 划词翻译是一个 VS Code PDF 阅读扩展。它可以在 PDF 中渲染�
 - 可以用工具栏 `Highlight` 按钮开启或关闭自动高亮
 - 可以在工具栏选择高亮颜色
 - 选中文本后按默认快捷键 `Ctrl+H` 可以添加高亮
+- 再次选中已高亮文本并按 `Ctrl+H` 可以取消高亮
 - 选中文本后按默认快捷键 `Ctrl+P` 可以把翻译内容作为备注框放在选区附近
 - 备注框可以用鼠标拖动位置
+- 按 `Ctrl+Z` 可以撤销最近一次高亮或备注操作
+- 按 `Ctrl+S` 或工具栏 `Save` 可以保存高亮和备注，下次打开同一个 PDF 会恢复
+- 高亮透明度和备注透明度都可以用滑杆调整
 - 目标语言和源语言使用下拉选项
 - API 服务按优先级自动尝试
 - API 密钥保存到 VS Code SecretStorage，不写入 `settings.json`
@@ -36,7 +40,7 @@ PDF 划词翻译是一个 VS Code PDF 阅读扩展。它可以在 PDF 中渲染�
 从本地 VSIX 安装：
 
 ```powershell
-code --install-extension .\pdf-word-translate-0.2.7.vsix --force
+code --install-extension .\pdf-word-translate-0.2.8.vsix --force
 ```
 
 安装后执行命令：
@@ -52,9 +56,12 @@ Developer: Reload Window
 3. 在 PDF 页面中用鼠标选中文本。
 4. 等待翻译浮窗显示结果。
 5. 需要高亮时，点击工具栏 `Highlight` 开关，或按高亮快捷键。
-6. 需要把翻译结果贴到页面旁边时，按备注快捷键。
-7. 备注框可以直接拖动调整位置。
-8. 点击工具栏的 `Settings` 可以调整语言、快捷键、备注透明度、启用或关闭某个翻译服务。
+6. 已有高亮再次被选中时，按高亮快捷键或开启 Highlight 后选中它，可以取消高亮。
+7. 需要把翻译结果贴到页面旁边时，按备注快捷键。
+8. 备注框可以直接拖动调整位置。
+9. 按 `Ctrl+S` 或工具栏 `Save` 保存标注。
+10. 点击工具栏的 `Settings` 可以调整语言、快捷键、高亮透明度、备注透明度、启用或关闭某个翻译服务。
+11. 高亮和备注改变后，按 `Ctrl+S` 或点击 `Save` 保存到本机。
 
 ## 配置 API
 
@@ -107,6 +114,7 @@ PDF Translate Viewer: Clear Translator API Keys
 - Highlight shortcut：高亮快捷键
 - Note shortcut：备注快捷键
 - Highlight color：高亮颜色
+- Highlight opacity：高亮透明度，滑杆调整
 - Note opacity：备注透明度
 - Max selection length：单次翻译最大字符数
 

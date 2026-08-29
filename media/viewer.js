@@ -17,7 +17,10 @@ const state = {
   lastTranslation: null,
   pendingNoteRequestId: null,
   annotations: [],
-  highlightMode: false
+  highlightMode: false,
+  undoStack: [],
+  nextAnnotationId: 1,
+  dirty: false
 };
 
 const viewer = document.getElementById('viewer');
@@ -32,6 +35,9 @@ const settingsMessage = document.getElementById('settingsMessage');
 const providerStatus = document.getElementById('providerStatus');
 const highlightToggle = document.getElementById('highlightToggle');
 const toolbarHighlightColor = document.getElementById('toolbarHighlightColor');
+const highlightOpacityValue = document.getElementById('highlightOpacityValue');
+const noteOpacityValue = document.getElementById('noteOpacityValue');
+const saveStatus = document.getElementById('saveStatus');
 const settingInputs = {
   sourceLanguage: document.getElementById('sourceLanguage'),
   targetLanguage: document.getElementById('targetLanguage'),
@@ -42,6 +48,7 @@ const settingInputs = {
   highlightShortcut: document.getElementById('highlightShortcut'),
   noteShortcut: document.getElementById('noteShortcut'),
   highlightColor: document.getElementById('highlightColor'),
+  highlightOpacity: document.getElementById('highlightOpacity'),
   noteOpacity: document.getElementById('noteOpacity'),
   maxSelectionLength: document.getElementById('maxSelectionLength')
 };
@@ -59,6 +66,23 @@ toolbarHighlightColor.addEventListener('change', () => {
   if (settingInputs.highlightColor) {
     settingInputs.highlightColor.value = toolbarHighlightColor.value;
   }
+});
+document.getElementById('saveAnnotations').addEventListener('click', saveAnnotations);
+settingInputs.highlightOpacity.addEventListener('input', () => {
+  const opacity = Number(settingInputs.highlightOpacity.value);
+  highlightOpacityValue.textContent = `${Math.round(opacity * 100)}%`;
+  if (state.settings) {
+    state.settings.highlightOpacity = opacity;
+  }
+  applyHighlightOpacity(opacity);
+});
+settingInputs.noteOpacity.addEventListener('input', () => {
+  const opacity = Number(settingInputs.noteOpacity.value);
+  noteOpacityValue.textContent = `${Math.round(opacity * 100)}%`;
+  if (state.settings) {
+    state.settings.noteOpacity = opacity;
+  }
+  applyNoteOpacity(opacity);
 });
 document.getElementById('settingsButton').addEventListener('click', openSettings);
 document.getElementById('closeSettings').addEventListener('click', closeSettings);
@@ -91,6 +115,7 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.type === 'pdfData') {
+    loadAnnotations(message.annotations);
     openPdfData(message.data);
     return;
   }
@@ -109,9 +134,25 @@ window.addEventListener('message', (event) => {
   if (message.type === 'settingsSaved') {
     state.settings = message.settings;
     fillSettings(message.settings);
-    applyNoteOpacity(message.settings.noteOpacity || '1');
+    applyHighlightOpacity(message.settings.highlightOpacity || 0.46);
+    applyNoteOpacity(message.settings.noteOpacity || 1);
     settingsMessage.className = 'settings-status';
     settingsMessage.textContent = 'Saved.';
+    return;
+  }
+
+  if (message.type === 'annotationsSaved') {
+    state.dirty = false;
+    setSaveStatus('Saved');
+    settingsMessage.className = 'settings-status';
+    settingsMessage.textContent = 'Annotations saved.';
+    return;
+  }
+
+  if (message.type === 'annotationsSaveError') {
+    setSaveStatus('Save failed');
+    settingsMessage.className = 'settings-status error';
+    settingsMessage.textContent = message.message;
     return;
   }
 
@@ -241,7 +282,7 @@ function scheduleSelectionTranslate() {
     state.lastSelection = captureSelection(selection, text);
     state.lastTranslation = null;
     if (state.highlightMode && state.lastSelection) {
-      addHighlightFromSelection(state.lastSelection);
+      toggleHighlightForSelection(state.lastSelection);
     }
     showTranslator(anchor, text);
     vscode.postMessage({
@@ -269,15 +310,34 @@ function handleKeyboardShortcuts(event) {
     return;
   }
 
+  if (matchesShortcut(event, 'ctrl+z')) {
+    if (isFormControl(document.activeElement)) {
+      return;
+    }
+    event.preventDefault();
+    undoLastAnnotationChange();
+    return;
+  }
+
+  if (matchesShortcut(event, 'ctrl+s')) {
+    event.preventDefault();
+    saveAnnotations();
+    return;
+  }
+
   if (matchesShortcut(event, getSetting('highlightShortcut', 'ctrl+h'))) {
     event.preventDefault();
-    addHighlightFromSelection();
+    toggleHighlightForSelection();
     return;
   }
   if (matchesShortcut(event, getSetting('noteShortcut', 'ctrl+p'))) {
     event.preventDefault();
     pinTranslationNote();
   }
+}
+
+function isFormControl(element) {
+  return Boolean(element?.closest?.('input, select, textarea'));
 }
 
 function showTranslator(anchor, text) {
@@ -301,14 +361,20 @@ function hideTranslator() {
 }
 
 function toggleHighlightMode() {
+  const selection = window.getSelection();
+  const text = selection ? selection.toString().trim() : '';
+  if (text) {
+    toggleHighlightForSelection(captureSelection(selection, text));
+    return;
+  }
   state.highlightMode = !state.highlightMode;
   highlightToggle.classList.toggle('active', state.highlightMode);
   highlightToggle.setAttribute('aria-pressed', String(state.highlightMode));
 }
 
-function addHighlightFromSelection(existingSelection) {
+function toggleHighlightForSelection(existingSelection) {
   if (existingSelection) {
-    addOverlayRects(existingSelection, 'selection-highlight');
+    toggleOverlayRects(existingSelection, 'selection-highlight');
     return;
   }
   const selection = window.getSelection();
@@ -317,7 +383,7 @@ function addHighlightFromSelection(existingSelection) {
   if (!captured || captured.rects.length === 0) {
     return;
   }
-  addOverlayRects(captured, 'selection-highlight');
+  toggleOverlayRects(captured, 'selection-highlight');
 }
 
 function pinTranslationNote() {
@@ -357,14 +423,17 @@ function addTranslationNote(result) {
   const left = Math.max(8, Math.min(captured.anchor.left, page.clientWidth - 260));
   const top = captured.anchor.bottom + 8;
   const annotation = {
+    id: makeAnnotationId(),
     type: 'note',
     pageNumber: captured.pageNumber,
     left: left / state.scale,
     top: top / state.scale,
-    opacity: getSetting('noteOpacity', '1'),
+    opacity: Number(getSetting('noteOpacity', 1)),
     text: `${result.provider}: ${result.translation}`
   };
   state.annotations.push(annotation);
+  pushUndo({ type: 'add', ids: [annotation.id] });
+  markDirty();
   renderNote(page, annotation);
 }
 
@@ -388,20 +457,44 @@ function fillSettings(settings) {
   settingInputs.highlightShortcut.value = settings.highlightShortcut || 'ctrl+h';
   settingInputs.noteShortcut.value = settings.noteShortcut || 'ctrl+p';
   settingInputs.highlightColor.value = settings.highlightColor || 'yellow';
-  settingInputs.noteOpacity.value = settings.noteOpacity || '1';
+  settingInputs.highlightOpacity.value = String(settings.highlightOpacity || 0.46);
+  highlightOpacityValue.textContent = `${Math.round(Number(settingInputs.highlightOpacity.value) * 100)}%`;
+  settingInputs.noteOpacity.value = String(settings.noteOpacity || 1);
+  noteOpacityValue.textContent = `${Math.round(Number(settingInputs.noteOpacity.value) * 100)}%`;
   toolbarHighlightColor.value = settings.highlightColor || 'yellow';
   settingInputs.maxSelectionLength.value = String(settings.maxSelectionLength || 1200);
   providerStatus.textContent = `Configured: Baidu ${yesNo(settings.hasBaidu)}, Tencent ${yesNo(settings.hasTencent)}, OpenAI ${yesNo(settings.hasOpenAI)}. Fallback: MyMemory.`;
 }
 
 function applyNoteOpacity(opacity) {
+  let changed = false;
   for (const annotation of state.annotations) {
     if (annotation.type === 'note') {
-      annotation.opacity = opacity;
+      annotation.opacity = Number(opacity);
+      changed = true;
     }
   }
   for (const note of viewer.querySelectorAll('.translation-note')) {
     note.style.opacity = String(opacity);
+  }
+  if (changed) {
+    markDirty();
+  }
+}
+
+function applyHighlightOpacity(opacity) {
+  let changed = false;
+  for (const annotation of state.annotations) {
+    if (annotation.type === 'highlight') {
+      annotation.opacity = Number(opacity);
+      changed = true;
+    }
+  }
+  for (const mark of viewer.querySelectorAll('.selection-highlight')) {
+    mark.style.opacity = String(opacity);
+  }
+  if (changed) {
+    markDirty();
   }
 }
 
@@ -420,6 +513,7 @@ function saveSettings() {
       highlightShortcut: settingInputs.highlightShortcut.value,
       noteShortcut: settingInputs.noteShortcut.value,
       highlightColor: settingInputs.highlightColor.value,
+      highlightOpacity: settingInputs.highlightOpacity.value,
       noteOpacity: settingInputs.noteOpacity.value,
       maxSelectionLength: settingInputs.maxSelectionLength.value
     }
@@ -560,15 +654,23 @@ function captureSelection(selection, text) {
   };
 }
 
-function addOverlayRects(captured, className) {
+function toggleOverlayRects(captured, className) {
   const page = viewer.querySelector(`[data-page-number="${captured.pageNumber}"]`);
   if (!page) {
     return;
   }
+  const removed = removeOverlappingHighlights(captured);
+  if (removed.length > 0) {
+    pushUndo({ type: 'remove', annotations: removed });
+    markDirty();
+    return;
+  }
   const annotation = {
+    id: makeAnnotationId(),
     type: 'highlight',
     pageNumber: captured.pageNumber,
     color: getSetting('highlightColor', 'yellow'),
+    opacity: Number(getSetting('highlightOpacity', 0.46)),
     rects: captured.rects.map((rect) => ({
       left: rect.left / state.scale,
       top: rect.top / state.scale,
@@ -577,6 +679,8 @@ function addOverlayRects(captured, className) {
     }))
   };
   state.annotations.push(annotation);
+  pushUndo({ type: 'add', ids: [annotation.id] });
+  markDirty();
   renderHighlight(page, annotation, className);
 }
 
@@ -600,6 +704,8 @@ function renderHighlight(page, annotation, className) {
     const mark = document.createElement('div');
     mark.className = className;
     mark.dataset.color = annotation.color || 'yellow';
+    mark.dataset.annotationId = annotation.id;
+    mark.style.opacity = String(annotation.opacity || 0.46);
     mark.style.left = `${scaled.left}px`;
     mark.style.top = `${scaled.top}px`;
     mark.style.width = `${scaled.width}px`;
@@ -611,10 +717,11 @@ function renderHighlight(page, annotation, className) {
 function renderNote(page, annotation) {
   const note = document.createElement('div');
   note.className = 'translation-note';
+  note.dataset.annotationId = annotation.id;
   note.textContent = annotation.text;
   note.style.left = `${annotation.left * state.scale}px`;
   note.style.top = `${annotation.top * state.scale}px`;
-  note.style.opacity = String(annotation.opacity || getSetting('noteOpacity', '1'));
+  note.style.opacity = String(annotation.opacity || getSetting('noteOpacity', 1));
   page.appendChild(note);
   bindNoteDrag(note, page, annotation);
 }
@@ -649,6 +756,7 @@ function bindNoteDrag(note, page, annotation) {
       note.style.top = `${nextTop}px`;
       annotation.left = nextLeft / state.scale;
       annotation.top = nextTop / state.scale;
+      markDirty();
     };
 
     const stop = () => {
@@ -662,6 +770,100 @@ function bindNoteDrag(note, page, annotation) {
     note.addEventListener('pointerup', stop);
     note.addEventListener('pointercancel', stop);
   });
+}
+
+function loadAnnotations(annotations) {
+  state.annotations = Array.isArray(annotations) ? annotations.map(normalizeAnnotation).filter(Boolean) : [];
+  state.nextAnnotationId = state.annotations.reduce((next, annotation) => {
+    const idNumber = Number(String(annotation.id || '').replace('a', ''));
+    return Number.isFinite(idNumber) ? Math.max(next, idNumber + 1) : next;
+  }, 1);
+  state.undoStack = [];
+  state.dirty = false;
+}
+
+function normalizeAnnotation(annotation) {
+  if (!annotation || !annotation.type || !annotation.pageNumber) {
+    return null;
+  }
+  return {
+    ...annotation,
+    id: annotation.id || makeAnnotationId()
+  };
+}
+
+function makeAnnotationId() {
+  const id = `a${state.nextAnnotationId}`;
+  state.nextAnnotationId += 1;
+  return id;
+}
+
+function removeOverlappingHighlights(captured) {
+  const removed = [];
+  state.annotations = state.annotations.filter((annotation) => {
+    if (annotation.type !== 'highlight' || annotation.pageNumber !== captured.pageNumber) {
+      return true;
+    }
+    const overlaps = annotation.rects.some((storedRect) => (
+      captured.rects.some((selectionRect) => rectsOverlap(scaleRect(storedRect), selectionRect))
+    ));
+    if (overlaps) {
+      removed.push(annotation);
+      return false;
+    }
+    return true;
+  });
+  for (const annotation of removed) {
+    for (const node of viewer.querySelectorAll(`[data-annotation-id="${annotation.id}"]`)) {
+      node.remove();
+    }
+  }
+  return removed;
+}
+
+function rectsOverlap(a, b) {
+  const x = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+  const y = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+  return x * y > Math.min(a.width * a.height, b.width * b.height) * 0.35;
+}
+
+function undoLastAnnotationChange() {
+  const action = state.undoStack.pop();
+  if (!action) {
+    return;
+  }
+  if (action.type === 'add') {
+    state.annotations = state.annotations.filter((annotation) => !action.ids.includes(annotation.id));
+  }
+  if (action.type === 'remove') {
+    state.annotations.push(...action.annotations);
+  }
+  markDirty();
+  renderAllPages(state.pdfjs);
+}
+
+function pushUndo(action) {
+  state.undoStack.push(action);
+  if (state.undoStack.length > 100) {
+    state.undoStack.shift();
+  }
+}
+
+function saveAnnotations() {
+  setSaveStatus('Saving...');
+  vscode.postMessage({
+    type: 'saveAnnotations',
+    annotations: state.annotations
+  });
+}
+
+function markDirty() {
+  state.dirty = true;
+  setSaveStatus('Unsaved');
+}
+
+function setSaveStatus(text) {
+  saveStatus.textContent = text;
 }
 
 function matchesShortcut(event, shortcut) {

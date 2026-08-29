@@ -98,6 +98,16 @@ button:hover {
   min-width: 76px;
 }
 
+#saveAnnotations {
+  min-width: 52px;
+}
+
+.save-status {
+  min-width: 54px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
 #highlightToggle.active {
   border-color: var(--accent);
   background: var(--vscode-button-background);
@@ -315,6 +325,17 @@ button:hover {
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   font: inherit;
+}
+
+.settings-panel input[type="range"] {
+  padding: 0;
+}
+
+.range-value {
+  display: inline-block;
+  margin-top: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
 }
 
 .settings-panel input:focus,
