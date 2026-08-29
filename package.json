@@ -2,7 +2,7 @@
   "name": "pdf-word-translate",
   "displayName": "PDF \u5212\u8bcd\u7ffb\u8bd1",
   "description": "\u5728 VS Code \u4e2d\u9605\u8bfb PDF\uff0c\u5e76\u5bf9\u9009\u4e2d\u6587\u672c\u81ea\u52a8\u5212\u8bcd\u7ffb\u8bd1\u3002",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "local",
   "license": "MIT",
   "repository": {
@@ -120,6 +120,34 @@
           "default": "gpt-4.1-mini",
           "enum": ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"],
           "description": "OpenAI model used for translation."
+        },
+        "pdfWordTranslate.highlightShortcut": {
+          "type": "string",
+          "default": "ctrl+h",
+          "enum": ["ctrl+h", "ctrl+shift+h", "alt+h"],
+          "enumDescriptions": ["Ctrl+H", "Ctrl+Shift+H", "Alt+H"],
+          "description": "Shortcut used to add a highlight to the current selection."
+        },
+        "pdfWordTranslate.noteShortcut": {
+          "type": "string",
+          "default": "ctrl+p",
+          "enum": ["ctrl+p", "ctrl+shift+p", "alt+p"],
+          "enumDescriptions": ["Ctrl+P", "Ctrl+Shift+P", "Alt+P"],
+          "description": "Shortcut used to pin the current translation as a note."
+        },
+        "pdfWordTranslate.highlightColor": {
+          "type": "string",
+          "default": "yellow",
+          "enum": ["yellow", "green", "blue", "pink"],
+          "enumDescriptions": ["Yellow", "Green", "Blue", "Pink"],
+          "description": "Default highlight color."
+        },
+        "pdfWordTranslate.noteOpacity": {
+          "type": "string",
+          "default": "1",
+          "enum": ["1", "0.85", "0.7", "0.55"],
+          "enumDescriptions": ["100%", "85%", "70%", "55%"],
+          "description": "Opacity for pinned translation notes."
         },
         "pdfWordTranslate.maxSelectionLength": {
           "type": "number",

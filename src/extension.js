@@ -195,6 +195,14 @@ class PdfTranslateProvider {
     <span id="zoomLabel">100%</span>
     <button id="zoomIn" title="Zoom in">+</button>
     <button id="fitWidth" title="Fit width">Fit</button>
+    <span class="divider"></span>
+    <button id="highlightToggle" title="Toggle highlight mode">Highlight</button>
+    <select id="toolbarHighlightColor" title="Highlight color">
+      <option value="yellow">Yellow</option>
+      <option value="green">Green</option>
+      <option value="blue">Blue</option>
+      <option value="pink">Pink</option>
+    </select>
     <span class="spacer"></span>
     <button id="settingsButton" title="Translation settings">Settings</button>
   </header>
@@ -257,6 +265,40 @@ class PdfTranslateProvider {
         <option value="gpt-4.1">gpt-4.1</option>
         <option value="gpt-4o-mini">gpt-4o-mini</option>
         <option value="gpt-4o">gpt-4o</option>
+      </select>
+    </label>
+    <label>
+      Highlight shortcut
+      <select id="highlightShortcut">
+        <option value="ctrl+h">Ctrl+H</option>
+        <option value="ctrl+shift+h">Ctrl+Shift+H</option>
+        <option value="alt+h">Alt+H</option>
+      </select>
+    </label>
+    <label>
+      Note shortcut
+      <select id="noteShortcut">
+        <option value="ctrl+p">Ctrl+P</option>
+        <option value="ctrl+shift+p">Ctrl+Shift+P</option>
+        <option value="alt+p">Alt+P</option>
+      </select>
+    </label>
+    <label>
+      Highlight color
+      <select id="highlightColor">
+        <option value="yellow">Yellow</option>
+        <option value="green">Green</option>
+        <option value="blue">Blue</option>
+        <option value="pink">Pink</option>
+      </select>
+    </label>
+    <label>
+      Note opacity
+      <select id="noteOpacity">
+        <option value="1">100%</option>
+        <option value="0.85">85%</option>
+        <option value="0.7">70%</option>
+        <option value="0.55">55%</option>
       </select>
     </label>
     <label>
@@ -466,6 +508,10 @@ async function getPublicSettings(context) {
     tencentEnabled: readSetting(context, 'tencentEnabled', true),
     openaiEnabled: readSetting(context, 'openaiEnabled', true),
     openaiModel: readSetting(context, 'openaiModel', 'gpt-4.1-mini'),
+    highlightShortcut: readSetting(context, 'highlightShortcut', 'ctrl+h'),
+    noteShortcut: readSetting(context, 'noteShortcut', 'ctrl+p'),
+    highlightColor: readSetting(context, 'highlightColor', 'yellow'),
+    noteOpacity: readSetting(context, 'noteOpacity', '1'),
     maxSelectionLength: readSetting(context, 'maxSelectionLength', 1200),
     hasBaidu: Boolean(await context.secrets.get(secretKey('baidu.appid')) && await context.secrets.get(secretKey('baidu.key'))),
     hasTencent: Boolean(await context.secrets.get(secretKey('tencent.secretId')) && await context.secrets.get(secretKey('tencent.secretKey'))),
@@ -480,6 +526,10 @@ async function saveSettings(context, settings) {
   await writeSetting(context, 'tencentEnabled', Boolean(settings.tencentEnabled));
   await writeSetting(context, 'openaiEnabled', Boolean(settings.openaiEnabled));
   await writeSetting(context, 'openaiModel', stringOrDefault(settings.openaiModel, 'gpt-4.1-mini'));
+  await writeSetting(context, 'highlightShortcut', stringOrDefault(settings.highlightShortcut, 'ctrl+h'));
+  await writeSetting(context, 'noteShortcut', stringOrDefault(settings.noteShortcut, 'ctrl+p'));
+  await writeSetting(context, 'highlightColor', stringOrDefault(settings.highlightColor, 'yellow'));
+  await writeSetting(context, 'noteOpacity', stringOrDefault(settings.noteOpacity, '1'));
   await writeSetting(context, 'maxSelectionLength', Number(settings.maxSelectionLength) || 1200);
 }
 

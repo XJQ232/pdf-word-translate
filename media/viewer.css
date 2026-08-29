@@ -94,6 +94,26 @@ button:hover {
   min-width: 68px;
 }
 
+#highlightToggle {
+  min-width: 76px;
+}
+
+#highlightToggle.active {
+  border-color: var(--accent);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+#toolbarHighlightColor {
+  width: 86px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: var(--vscode-dropdown-background, var(--vscode-input-background));
+  color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+}
+
 #viewer {
   height: 100%;
   overflow: auto;
@@ -170,6 +190,22 @@ button:hover {
   pointer-events: none;
 }
 
+.selection-highlight[data-color="green"] {
+  background: rgba(92, 214, 92, 0.38);
+}
+
+.selection-highlight[data-color="blue"] {
+  background: rgba(76, 154, 255, 0.35);
+}
+
+.selection-highlight[data-color="pink"] {
+  background: rgba(255, 112, 179, 0.36);
+}
+
+.selection-highlight[data-color="yellow"] {
+  background: rgba(255, 218, 77, 0.46);
+}
+
 .translation-note {
   position: absolute;
   z-index: 4;
@@ -186,6 +222,12 @@ button:hover {
   line-height: 1.45;
   pointer-events: auto;
   user-select: text;
+  cursor: move;
+}
+
+.translation-note.dragging {
+  outline: 1px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
 }
 
 .translator {

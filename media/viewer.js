@@ -16,7 +16,8 @@ const state = {
   lastSelection: null,
   lastTranslation: null,
   pendingNoteRequestId: null,
-  annotations: []
+  annotations: [],
+  highlightMode: false
 };
 
 const viewer = document.getElementById('viewer');
@@ -29,6 +30,8 @@ const translatorResult = document.getElementById('translatorResult');
 const settingsPanel = document.getElementById('settingsPanel');
 const settingsMessage = document.getElementById('settingsMessage');
 const providerStatus = document.getElementById('providerStatus');
+const highlightToggle = document.getElementById('highlightToggle');
+const toolbarHighlightColor = document.getElementById('toolbarHighlightColor');
 const settingInputs = {
   sourceLanguage: document.getElementById('sourceLanguage'),
   targetLanguage: document.getElementById('targetLanguage'),
@@ -36,6 +39,10 @@ const settingInputs = {
   tencentEnabled: document.getElementById('tencentEnabled'),
   openaiEnabled: document.getElementById('openaiEnabled'),
   openaiModel: document.getElementById('openaiModel'),
+  highlightShortcut: document.getElementById('highlightShortcut'),
+  noteShortcut: document.getElementById('noteShortcut'),
+  highlightColor: document.getElementById('highlightColor'),
+  noteOpacity: document.getElementById('noteOpacity'),
   maxSelectionLength: document.getElementById('maxSelectionLength')
 };
 
@@ -44,6 +51,15 @@ document.getElementById('nextPage').addEventListener('click', () => scrollToPage
 document.getElementById('zoomOut').addEventListener('click', () => setScale(state.scale / 1.15));
 document.getElementById('zoomIn').addEventListener('click', () => setScale(state.scale * 1.15));
 document.getElementById('fitWidth').addEventListener('click', fitWidth);
+highlightToggle.addEventListener('click', toggleHighlightMode);
+toolbarHighlightColor.addEventListener('change', () => {
+  if (state.settings) {
+    state.settings.highlightColor = toolbarHighlightColor.value;
+  }
+  if (settingInputs.highlightColor) {
+    settingInputs.highlightColor.value = toolbarHighlightColor.value;
+  }
+});
 document.getElementById('settingsButton').addEventListener('click', openSettings);
 document.getElementById('closeSettings').addEventListener('click', closeSettings);
 document.getElementById('saveSettings').addEventListener('click', saveSettings);
@@ -93,6 +109,7 @@ window.addEventListener('message', (event) => {
   if (message.type === 'settingsSaved') {
     state.settings = message.settings;
     fillSettings(message.settings);
+    applyNoteOpacity(message.settings.noteOpacity || '1');
     settingsMessage.className = 'settings-status';
     settingsMessage.textContent = 'Saved.';
     return;
@@ -223,6 +240,9 @@ function scheduleSelectionTranslate() {
     const anchor = getSelectionAnchor(selection);
     state.lastSelection = captureSelection(selection, text);
     state.lastTranslation = null;
+    if (state.highlightMode && state.lastSelection) {
+      addHighlightFromSelection(state.lastSelection);
+    }
     showTranslator(anchor, text);
     vscode.postMessage({
       type: 'translate',
@@ -245,16 +265,16 @@ function handleWheelZoom(event) {
 }
 
 function handleKeyboardShortcuts(event) {
-  if (!event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) {
+  if (event.metaKey) {
     return;
   }
 
-  const key = event.key.toLowerCase();
-  if (key === 'h') {
+  if (matchesShortcut(event, getSetting('highlightShortcut', 'ctrl+h'))) {
     event.preventDefault();
     addHighlightFromSelection();
+    return;
   }
-  if (key === 'p') {
+  if (matchesShortcut(event, getSetting('noteShortcut', 'ctrl+p'))) {
     event.preventDefault();
     pinTranslationNote();
   }
@@ -280,7 +300,17 @@ function hideTranslator() {
   translator.hidden = true;
 }
 
-function addHighlightFromSelection() {
+function toggleHighlightMode() {
+  state.highlightMode = !state.highlightMode;
+  highlightToggle.classList.toggle('active', state.highlightMode);
+  highlightToggle.setAttribute('aria-pressed', String(state.highlightMode));
+}
+
+function addHighlightFromSelection(existingSelection) {
+  if (existingSelection) {
+    addOverlayRects(existingSelection, 'selection-highlight');
+    return;
+  }
   const selection = window.getSelection();
   const text = selection ? selection.toString().trim() : '';
   const captured = text ? captureSelection(selection, text) : state.lastSelection;
@@ -331,6 +361,7 @@ function addTranslationNote(result) {
     pageNumber: captured.pageNumber,
     left: left / state.scale,
     top: top / state.scale,
+    opacity: getSetting('noteOpacity', '1'),
     text: `${result.provider}: ${result.translation}`
   };
   state.annotations.push(annotation);
@@ -354,8 +385,24 @@ function fillSettings(settings) {
   settingInputs.tencentEnabled.checked = Boolean(settings.tencentEnabled);
   settingInputs.openaiEnabled.checked = Boolean(settings.openaiEnabled);
   settingInputs.openaiModel.value = settings.openaiModel || 'gpt-4.1-mini';
+  settingInputs.highlightShortcut.value = settings.highlightShortcut || 'ctrl+h';
+  settingInputs.noteShortcut.value = settings.noteShortcut || 'ctrl+p';
+  settingInputs.highlightColor.value = settings.highlightColor || 'yellow';
+  settingInputs.noteOpacity.value = settings.noteOpacity || '1';
+  toolbarHighlightColor.value = settings.highlightColor || 'yellow';
   settingInputs.maxSelectionLength.value = String(settings.maxSelectionLength || 1200);
   providerStatus.textContent = `Configured: Baidu ${yesNo(settings.hasBaidu)}, Tencent ${yesNo(settings.hasTencent)}, OpenAI ${yesNo(settings.hasOpenAI)}. Fallback: MyMemory.`;
+}
+
+function applyNoteOpacity(opacity) {
+  for (const annotation of state.annotations) {
+    if (annotation.type === 'note') {
+      annotation.opacity = opacity;
+    }
+  }
+  for (const note of viewer.querySelectorAll('.translation-note')) {
+    note.style.opacity = String(opacity);
+  }
 }
 
 function saveSettings() {
@@ -370,6 +417,10 @@ function saveSettings() {
       tencentEnabled: settingInputs.tencentEnabled.checked,
       openaiEnabled: settingInputs.openaiEnabled.checked,
       openaiModel: settingInputs.openaiModel.value,
+      highlightShortcut: settingInputs.highlightShortcut.value,
+      noteShortcut: settingInputs.noteShortcut.value,
+      highlightColor: settingInputs.highlightColor.value,
+      noteOpacity: settingInputs.noteOpacity.value,
       maxSelectionLength: settingInputs.maxSelectionLength.value
     }
   });
@@ -517,6 +568,7 @@ function addOverlayRects(captured, className) {
   const annotation = {
     type: 'highlight',
     pageNumber: captured.pageNumber,
+    color: getSetting('highlightColor', 'yellow'),
     rects: captured.rects.map((rect) => ({
       left: rect.left / state.scale,
       top: rect.top / state.scale,
@@ -547,6 +599,7 @@ function renderHighlight(page, annotation, className) {
     const scaled = scaleRect(rect);
     const mark = document.createElement('div');
     mark.className = className;
+    mark.dataset.color = annotation.color || 'yellow';
     mark.style.left = `${scaled.left}px`;
     mark.style.top = `${scaled.top}px`;
     mark.style.width = `${scaled.width}px`;
@@ -561,7 +614,9 @@ function renderNote(page, annotation) {
   note.textContent = annotation.text;
   note.style.left = `${annotation.left * state.scale}px`;
   note.style.top = `${annotation.top * state.scale}px`;
+  note.style.opacity = String(annotation.opacity || getSetting('noteOpacity', '1'));
   page.appendChild(note);
+  bindNoteDrag(note, page, annotation);
 }
 
 function scaleRect(rect) {
@@ -571,6 +626,64 @@ function scaleRect(rect) {
     width: rect.width * state.scale,
     height: rect.height * state.scale
   };
+}
+
+function bindNoteDrag(note, page, annotation) {
+  note.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    note.setPointerCapture(event.pointerId);
+    note.classList.add('dragging');
+    const pageRect = page.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startLeft = annotation.left * state.scale;
+    const startTop = annotation.top * state.scale;
+
+    const move = (moveEvent) => {
+      const nextLeft = clamp(startLeft + moveEvent.clientX - startX, 0, pageRect.width - note.offsetWidth);
+      const nextTop = clamp(startTop + moveEvent.clientY - startY, 0, pageRect.height - note.offsetHeight);
+      note.style.left = `${nextLeft}px`;
+      note.style.top = `${nextTop}px`;
+      annotation.left = nextLeft / state.scale;
+      annotation.top = nextTop / state.scale;
+    };
+
+    const stop = () => {
+      note.classList.remove('dragging');
+      note.removeEventListener('pointermove', move);
+      note.removeEventListener('pointerup', stop);
+      note.removeEventListener('pointercancel', stop);
+    };
+
+    note.addEventListener('pointermove', move);
+    note.addEventListener('pointerup', stop);
+    note.addEventListener('pointercancel', stop);
+  });
+}
+
+function matchesShortcut(event, shortcut) {
+  const expected = parseShortcut(shortcut);
+  return event.key.toLowerCase() === expected.key
+    && event.ctrlKey === expected.ctrl
+    && event.shiftKey === expected.shift
+    && event.altKey === expected.alt;
+}
+
+function parseShortcut(shortcut) {
+  const parts = String(shortcut || '').toLowerCase().split('+');
+  return {
+    key: parts[parts.length - 1] || '',
+    ctrl: parts.includes('ctrl'),
+    shift: parts.includes('shift'),
+    alt: parts.includes('alt')
+  };
+}
+
+function getSetting(key, defaultValue) {
+  return state.settings && state.settings[key] !== undefined ? state.settings[key] : defaultValue;
 }
 
 function scrollToPage(page) {
