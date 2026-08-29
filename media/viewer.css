@@ -161,6 +161,32 @@ button:hover {
   background: color-mix(in srgb, var(--accent) 38%, transparent);
 }
 
+.selection-highlight {
+  position: absolute;
+  z-index: 3;
+  border-radius: 2px;
+  background: rgba(255, 218, 77, 0.46);
+  pointer-events: none;
+}
+
+.translation-note {
+  position: absolute;
+  z-index: 4;
+  width: min(260px, calc(100% - 16px));
+  max-height: 140px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--border));
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: auto;
+  user-select: text;
+}
+
 .translator {
   position: fixed;
   z-index: 50;

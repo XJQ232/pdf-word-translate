@@ -9,6 +9,10 @@ PDF 划词翻译是一个 VS Code PDF 阅读扩展。它可以在 PDF 中渲染�
 - 划词后自动翻译
 - 翻译浮窗显示实际使用的服务
 - 支持翻页、缩放、适应宽度
+- 每次打开 PDF 自动适应宽度
+- 按住 `Ctrl` 并滚动鼠标滚轮可以放大或缩小
+- 选中文本后按 `Ctrl+H` 可以添加高亮
+- 选中文本后按 `Ctrl+P` 可以把翻译内容作为备注框放在选区附近
 - 目标语言和源语言使用下拉选项
 - API 服务按优先级自动尝试
 - API 密钥保存到 VS Code SecretStorage，不写入 `settings.json`
@@ -29,7 +33,7 @@ PDF 划词翻译是一个 VS Code PDF 阅读扩展。它可以在 PDF 中渲染�
 从本地 VSIX 安装：
 
 ```powershell
-code --install-extension .\pdf-word-translate-0.2.4.vsix --force
+code --install-extension .\pdf-word-translate-0.2.5.vsix --force
 ```
 
 安装后执行命令：
@@ -44,7 +48,9 @@ Developer: Reload Window
 2. 如果没有自动使用本插件，点击编辑器右上角的打开方式，选择 `PDF Translate Viewer`。
 3. 在 PDF 页面中用鼠标选中文本。
 4. 等待翻译浮窗显示结果。
-5. 点击工具栏的 `Settings` 可以调整语言、启用或关闭某个翻译服务。
+5. 需要高亮时按 `Ctrl+H`。
+6. 需要把翻译结果贴到页面旁边时按 `Ctrl+P`。
+7. 点击工具栏的 `Settings` 可以调整语言、启用或关闭某个翻译服务。
 
 ## 配置 API
 
@@ -112,4 +118,4 @@ powershell -ExecutionPolicy Bypass -File .\package-vsix.ps1
 
 ## 说明
 
-当前 PDF.js 从 CDN 加载，因此首次打开 PDF 时需要网络访问 `cdn.jsdelivr.net`。翻译服务也需要对应 API 的网络访问权限。
+当前高亮和备注是 viewer 内的临时标记，不会写回 PDF 文件本体。当前 PDF.js 从 CDN 加载，因此首次打开 PDF 时需要网络访问 `cdn.jsdelivr.net`。翻译服务也需要对应 API 的网络访问权限。
